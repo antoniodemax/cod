@@ -1,7 +1,6 @@
+from app import app, db
+from models import Hero, Power, HeroPower
 from random import choice as rc
-
-from app import app
-from models import db, Hero, Power, HeroPower
 
 if __name__ == '__main__':
     with app.app_context():
