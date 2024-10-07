@@ -56,7 +56,14 @@ def get_hero_by_id(id):
     else:
         return make_response(jsonify({"error": "Hero not found"}), 404)
     
+
+@app.route('/powers', methods=['GET'])
+def get_powers():
+    powers = Power.query.all()
+    powers_list = [{"id": power.id, "name": power.name, "description": power.description} for power in powers]
+    return jsonify(powers_list)   
     
+
 
 
 
