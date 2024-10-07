@@ -89,7 +89,37 @@ def update_power(id):
             "description": power.description
         })
     else:
-        return make_response(jsonify({"error": "Invalid request"}), 400)   
+        return make_response(jsonify({"error": "Invalid request"}), 400) 
+
+
+
+@app.route('/hero_powers', methods=['POST'])
+def create_hero_power():
+    data = request.get_json()
+    strength = data.get('strength')
+    hero_id = data.get('hero_id')
+    power_id = data.get('power_id')
+
+    if strength not in ['Weak', 'Average', 'Strong']:
+        return make_response(jsonify({"errors": ["Invalid strength value"]}), 400)
+
+    hero = Hero.query.get(hero_id)
+    power = Power.query.get(power_id)
+
+    if not hero or not power:
+        return make_response(jsonify({"errors": ["Invalid hero or power"]}), 400)
+
+    new_hero_power = HeroPower(strength=strength, hero_id=hero_id, power_id=power_id)
+    db.session.add(new_hero_power)
+    db.session.commit()
+
+    return jsonify({
+        "id": new_hero_power.id,
+        "strength": new_hero_power.strength,
+        "hero": {"id": hero.id, "name": hero.name, "super_name": hero.super_name},
+        "power": {"id": power.id, "name": power.name, "description": power.description}
+    }), 201   
+
     
 
 
