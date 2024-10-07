@@ -24,6 +24,13 @@ db.init_app(app)
 def index():
     return '<h1>Welcome to my API</h1>'
 
+@app.route('/heroes', methods=['GET'])
+def get_heroes():
+    heroes = Hero.query.all()
+    heroes_list = [{"id": hero.id, "name": hero.name, "super_name": hero.super_name} for hero in heroes]
+    return jsonify(heroes_list)
+
+
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
