@@ -1,153 +1,80 @@
-# from flask_sqlalchemy import SQLAlchemy
-# from sqlalchemy import MetaData
-# from sqlalchemy.orm import validates
-# from sqlalchemy.ext.associationproxy import association_proxy
-# from sqlalchemy_serializer import SerializerMixin
+#!/usr/bin/env python3
 
-# metadata = MetaData(naming_convention={
-#     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-# })
+from flask import Flask, request, make_response
+from flask_migrate import Migrate
+from flask_restful import Api, Resource
+from models import database, Character, Ability, CharacterAbility
+import os
+from flask_cors import CORS
 
-# db = SQLAlchemy(metadata=metadata)
+# Set up of the  base directory and database configuration
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DATABASE_URI = os.environ.get("DB_URI", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
 
+app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.json.compact = False
 
-# class Hero(db.Model, SerializerMixin):
-#     __tablename__ = 'heroes'
+migrate = Migrate(app, database)
+database.init_app(app)
+CORS(app)
 
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String)
-#     super_name = db.Column(db.String)
+@app.route("/")
+def home():
+    return "<h1>Character and Ability API</h1>"
 
-#     # add relationship
+@app.route("/characters", methods=["GET"])
+def list_characters():
+    all_characters = Character.query.all()
+    response_data = [character.to_dict(only=("id", "real_name", "alias")) for character in all_characters]
+    return make_response(response_data, 200)
 
-#     # add serialization rules
+@app.route("/characters/<int:id>", methods=["GET"])
+def get_character(id):
+    character = Character.query.get(id)
+    if character:
+        response_data = character.to_dict()
+        return make_response(response_data, 200)
+    return make_response({"error": "Character not found"}, 404)
 
-#     def __repr__(self):
-#         return f'<Hero {self.id}>'
+@app.route("/abilities", methods=["GET"])
+def list_abilities():
+    all_abilities = Ability.query.all()
+    response_data = [ability.to_dict(only=("id", "title", "details")) for ability in all_abilities]
+    return make_response(response_data, 200)
 
-
-# class Power(db.Model, SerializerMixin):
-#     __tablename__ = 'powers'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String)
-#     description = db.Column(db.String)
-
-#     # add relationship
-
-#     # add serialization rules
-
-#     # add validation
-
-#     def __repr__(self):
-#         return f'<Power {self.id}>'
-
-
-# class HeroPower(db.Model, SerializerMixin):
-#     __tablename__ = 'hero_powers'
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     strength = db.Column(db.String, nullable=False)
-
-#     # add relationships
-
-#     # add serialization rules
-
-#     # add validation
-
-#     def __repr__(self):
-#         return f'<HeroPower {self.id}>'
-
-
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import MetaData
-from sqlalchemy.orm import validates
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy_serializer import SerializerMixin
-
-custom_metadata = MetaData(
-    naming_convention={
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    }
-)
-
-database = SQLAlchemy(metadata=custom_metadata)
-
-
-class Character(database.Model, SerializerMixin):
-    __tablename__ = "characters"
-
-    id = database.Column(database.Integer, primary_key=True)
-    real_name = database.Column(database.String)
-    alias = database.Column(database.String)
-
-    abilities_link = database.relationship(
-        "CharacterAbility", back_populates="character", cascade="all, delete-orphan"
-    )
-    abilities = association_proxy(
-        "abilities_link", "ability", creator=lambda ability_instance: CharacterAbility(ability=ability_instance)
-    )
-
-    serialize_rules = ("-abilities_link.character",)
-
-    def __repr__(self):
-        return f"<Character {self.id}>"
-
-
-class Ability(database.Model, SerializerMixin):
-    __tablename__ = "abilities"
-
-    id = database.Column(database.Integer, primary_key=True)
-    title = database.Column(database.String)
-    details = database.Column(database.String, nullable=False)
-
-    abilities_link = database.relationship(
-        "CharacterAbility", back_populates="ability", cascade="all, delete-orphan"
-    )
-    characters = association_proxy(
-        "abilities_link", "character", creator=lambda character_instance: CharacterAbility(character=character_instance)
-    )
-
-    serialize_rules = ("-abilities_link.ability",)
-
-    @validates("details")
-    def check_details(self, key, value):
-        if not value:
-            raise ValueError("Details cannot be empty")
-        if len(value) >= 20:
-            return value
-        else:
-            raise ValueError("Details must be at least 20 characters long")
-
-    def __repr__(self):
-        return f"<Ability {self.id}>"
-
-
-class CharacterAbility(database.Model, SerializerMixin):
-    __tablename__ = "character_abilities"
-
-    id = database.Column(database.Integer, primary_key=True)
-    power_level = database.Column(database.String, nullable=False)
-
-    # Foreign keys for the relationships 
-    character_id = database.Column(database.Integer, database.ForeignKey("characters.id"))
-    ability_id = database.Column(database.Integer, database.ForeignKey("abilities.id"))
+@app.route("/abilities/<int:id>", methods=["GET", "PATCH"])
+def manage_ability(id):
+    ability = Ability.query.get(id)
+    if request.method == "GET":
+        if ability:
+            response_data = ability.to_dict(only=("id", "title", "details"))
+            return make_response(response_data, 200)
+        return make_response({"error": "Ability not found"}, 404)
     
-    character = database.relationship("Character", back_populates="abilities_link")
-    ability = database.relationship("Ability", back_populates="abilities_link")
+    if request.method == "PATCH":
+        if not ability:
+            return make_response({"error": "Ability not found"}, 404)
+        data = request.get_json() if request.is_json else request.form
+        try:
+            for key, value in data.items():
+                setattr(ability, key, value)
+            database.session.commit()
+            return make_response(ability.to_dict(), 200)
+        except ValueError:
+            return make_response({"errors": ["validation errors"]}, 400)
 
-    serialize_rules = (
-        "-character.abilities_link",
-        "-ability.abilities_link",
-    )
+@app.route("/character_abilities", methods=["POST"])
+def add_character_ability():
+    try:
+        data = request.get_json() if request.is_json else request.form
+        character_ability = CharacterAbility(**data)
+        database.session.add(character_ability)
+        database.session.commit()
+        return make_response(character_ability.to_dict(), 201)
+    except ValueError:
+        return make_response({"errors": ["validation errors"]}, 400)
 
-    @validates("power_level")
-    def check_power_level(self, key, value):
-        if value not in ["High", "Medium", "Low"]:
-            raise ValueError(
-                "Power level must be one of the following: 'High', 'Medium', 'Low'"
-            )
-        return value
-
-    def __repr__(self):
-        return f"<CharacterAbility {self.id}>"
+if __name__ == "__main__":
+    app.run(port=5555, debug=True)
