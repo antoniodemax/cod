@@ -73,6 +73,25 @@ def get_power_by_id(id):
         return make_response(jsonify({"error": "Power not found"}), 404)
     
 
+@app.route('/powers/<int:id>', methods=['PATCH'])
+def update_power(id):
+    power = Power.query.get(id)
+    if not power:
+        return make_response(jsonify({"error": "Power not found"}), 404)
+    
+    data = request.get_json()
+    if 'description' in data:
+        power.description = data['description']
+        db.session.commit()
+        return jsonify({
+            "id": power.id,
+            "name": power.name,
+            "description": power.description
+        })
+    else:
+        return make_response(jsonify({"error": "Invalid request"}), 400)   
+    
+
 
 
 
