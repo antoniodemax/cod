@@ -22,7 +22,7 @@ db.init_app(app)
 
 @app.route('/')
 def index():
-    return '<h1>Code challenge</h1>'
+    return '<h1>Welcome to my API</h1>'
 
 
 if __name__ == '__main__':
